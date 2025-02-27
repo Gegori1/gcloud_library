@@ -7,13 +7,13 @@ This library provides a set of tools for managing Google Cloud Platform (GCP) re
 To install the library, use pip:
 
 ```bash
-pip install git+https://github.com/Gegori1/gcloud_library
+pip install git+https://github.com/Gegori1/gcloud_library#egg=gcp_library
 ```
 
 or
 
 ```bash
-pip install -e git+https://github.com/Gegori1/gcloud_library
+pip install -e git+https://github.com/Gegori1/gcloud_library#egg=gcp_library
 ```
 
 ## Usage
