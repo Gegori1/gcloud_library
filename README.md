@@ -13,7 +13,7 @@ pip install git+https://github.com/Gegori1/gcloud_library#egg=gcp_library
 or
 
 ```bash
-pip install -e git+https://github.com/Gegori1/gcloud_library#egg=gcp_library
+pip install -e git+https://github.com/Gegori1/gcloud_library#egg=gcp_library --config-settings editable_mode=strict
 ```
 
 ## Usage
