@@ -8,6 +8,7 @@ class CustomGCPInstanceLauncher:
 
         Args:
             credentials: GCP credentials.
+            image_name (str): The name of the image as saved.
             zone (str): The zone where the instance will be created.
             machine_type (str): The machine type for the instance.
             image_project (str): The project ID where the image is located.
@@ -26,9 +27,9 @@ class CustomGCPInstanceLauncher:
         self.compute_client = compute_v1.InstancesClient(credentials=self.credentials)
         self.zone_operation_client = compute_v1.ZoneOperationsClient(credentials=self.credentials)
 
-    def __call__(self, startup_script, image_name, instance_name):
+    def __call__(self, startup_script, instance_name):
         """Launches a GCP instance with the given startup script and image name."""
-        instance_details = self._create_instance_details(instance_name, startup_script, image_name)
+        instance_details = self._create_instance_details(instance_name, startup_script)
 
         try:
             operation = self.compute_client.insert(project=self.project_id, zone=self.zone, instance_resource=instance_details)
