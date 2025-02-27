@@ -120,7 +120,21 @@ class CustomGCPInstanceMonitor:
         except Exception as e:
             print(f"Error getting instance details for {instance_name}: {e}")
             return None, None
+    
+    def stop_instance(self, instance_name):
+        """Stops a GCP instance."""
+        try:
+            stop_operation = self.compute_client.stop(project=self.project_id, zone=self.zone, instance=instance_name)
+            zone_operation = self.zone_operation_client.wait(operation=stop_operation.name, project=self.project_id, zone=self.zone)
 
+            if zone_operation.error:
+                print(f"Error stopping instance {instance_name}: {zone_operation.error}")
+            else:
+                print(f"Instance {instance_name} stopped successfully.")
+        except exceptions.NotFound:
+            print(f"Instance {instance_name} not found. Unable to stop.")
+        except Exception as e:
+            print(f"Error stopping instance {instance_name}: {e}")
 # %%
 
 
