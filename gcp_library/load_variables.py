@@ -1,7 +1,7 @@
 import yaml
 import os
 
-def get_config_file_path(include_filename=True):
+def get_config_file_path(filename="config.yml", include_filename=True):
     """
     Dynamically determines the path to the config.yml file.
 
@@ -18,7 +18,7 @@ def get_config_file_path(include_filename=True):
     # Traverse up the directory tree until the config.yml file is found
     current_dir = script_dir
     while True:
-        config_path = os.path.join(current_dir, 'config.yml')
+        config_path = os.path.join(current_dir, filename)
         if os.path.exists(config_path):
             if include_filename:
                 return config_path
@@ -28,7 +28,7 @@ def get_config_file_path(include_filename=True):
         parent_dir = os.path.dirname(current_dir)
         if parent_dir == current_dir:
             # Reached the root directory without finding the file
-            raise FileNotFoundError("config.yml not found in any parent directory.")
+            raise FileNotFoundError(f"{filename} not found in any parent directory.")
         current_dir = parent_dir
     
 def join(loader, node):
