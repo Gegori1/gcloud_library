@@ -136,31 +136,5 @@ class CustomGCPInstanceMonitor:
         except Exception as e:
             print(f"Error stopping instance {instance_name}: {e}")
 
-    def create_image_from_instance(self, instance_name, image_name, description):
-        """Creates an image from a GCP instance."""
-        image_client = compute_v1.ImagesClient(credentials=self.credentials)
-        project_operation_client = compute_v1.GlobalOperationsClient(credentials=self.credentials)
-
-        image_details = compute_v1.Image(
-            name=image_name,
-            description=description,
-            source_disk=f"zones/{self.zone}/disks/{instance_name}"
-        )
-        
-        try:
-            image_operation = image_client.insert(
-            project=self.project_id,
-            image_resource=image_details,
-            )
-            global_operation = project_operation_client.wait(operation=image_operation.name, project=self.project_id)
-
-            if global_operation.error:
-                print(f"Error creating image: {global_operation.error}")
-            else:
-                print(f"Image {image_name} created successfully")
-        except exceptions.Conflict:
-            print(f"Image {image_name} already exists. Continuing with the process.")
-
-
 # %%
 
