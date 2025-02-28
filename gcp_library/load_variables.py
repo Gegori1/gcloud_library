@@ -30,14 +30,22 @@ def get_config_file_path(include_filename=True):
             # Reached the root directory without finding the file
             raise FileNotFoundError("config.yml not found in any parent directory.")
         current_dir = parent_dir
+    
+def join(loader, node):
+    seq = loader.construct_sequence(node)
+    return ''.join([str(i) for i in seq])
 
-def get_vars():
+def get_vars(filename='config.yml', max_depth=5):
     """
     Loads variables from the config.yml file.
 
     Returns:
         dict: A dictionary containing the configuration variables.
     """
-    config_path = get_config_file_path()
-    with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
+    config_file_path = get_config_file_path(filename, max_depth)
+    yaml.SafeLoader.add_constructor('!join', join)
+
+    if config_file_path:
+        with open(config_file_path, 'r') as file:
+            return yaml.safe_load(file)
+    return None
