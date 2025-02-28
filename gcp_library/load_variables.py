@@ -35,14 +35,14 @@ def join(loader, node):
     seq = loader.construct_sequence(node)
     return ''.join([str(i) for i in seq])
 
-def get_vars(filename='config.yml', max_depth=5):
+def get_vars(filename='config.yml'):
     """
     Loads variables from the config.yml file.
 
     Returns:
         dict: A dictionary containing the configuration variables.
     """
-    config_file_path = get_config_file_path(filename, max_depth)
+    config_file_path = get_config_file_path(filename)
     yaml.SafeLoader.add_constructor('!join', join)
 
     if config_file_path:
