@@ -135,6 +135,35 @@ class CustomGCPInstanceMonitor:
             print(f"Instance {instance_name} not found. Unable to stop.")
         except Exception as e:
             print(f"Error stopping instance {instance_name}: {e}")
+
+    def create_image_from_instance(self, instance_name, image_name, description):
+        """Creates an image from a GCP instance."""
+        try:
+            # Prepare the image resource.
+            image_body = compute_v1.Image()
+            image_body.name = image_name
+            image_body.description = description
+            
+            # Create the image creation request.
+            request = compute_v1.InsertImageRequest(
+                project=self.project_id,
+                image_resource=image_body,
+                source_disk=f"zones/{self.zone}/disks/{instance_name}"
+            )
+
+            # Execute the request.
+            operation = self.compute_client.insert(request=request)
+            zone_operation = self.zone_operation_client.wait(operation=operation.name, project=self.project_id, zone=self.zone)
+
+            if zone_operation.error:
+                print(f"Error creating image {image_name} from instance {instance_name}: {zone_operation.error}")
+            else:
+                print(f"Image {image_name} created successfully from instance {instance_name}.")
+
+        except exceptions.NotFound:
+            print(f"Instance {instance_name} not found. Unable to create image.")
+        except Exception as e:
+            print(f"Error creating image from instance {instance_name}: {e}")
 # %%
 
 

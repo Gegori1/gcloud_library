@@ -65,7 +65,7 @@ class CustomGCPInstanceLauncher:
                     initialize_params=compute_v1.AttachedDiskInitializeParams(
                         source_image=image_path,
                     ),
-                    type_="PERSISTENT" if self.instance_type.upper() != "SPOT" else "PERSISTENT",  # Modify as needed
+                    type_="PERSISTENT" if self.instance_type.upper() != "SPOT" else "PERSISTENT",
                 )
             ],
             network_interfaces=[
