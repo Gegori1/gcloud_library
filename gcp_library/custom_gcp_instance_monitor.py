@@ -82,8 +82,7 @@ class CustomGCPInstanceMonitor:
         while True:
             # max_retries times if CPU usage data is not immediately available.
             try:
-                cpu_usage = self._get_cpu_utilization(self.project_id, instance_name) # I need to install google-cloud-monitoring
-                cpu_usage = 5 # temporal value
+                cpu_usage = self._get_cpu_utilization(self.project_id, instance_name)
                 if cpu_usage:
                     print(f"CPU Usage for {instance_name}: {cpu_usage:.2f}%")
 
