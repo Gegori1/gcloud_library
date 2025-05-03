@@ -282,7 +282,9 @@ class TimeSeriesOpt:
         except ValueError:
             print(f"  No completed trials found in the study.")
 
-        print("Study complete. Triggering final upload (if needed) and waiting for all uploads...")
+        print("Study complete. Triggering final upload...")
+        self._trigger_upload() # Ensure final upload is triggered
+        print("Waiting for all uploads to finish...")
         self._wait_for_uploads()
         print("All uploads finished.")
 
