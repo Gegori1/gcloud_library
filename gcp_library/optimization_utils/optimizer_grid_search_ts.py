@@ -27,7 +27,8 @@ class TimeSeriesOpt:
                  n_splits=5, test_size=None, gap=0,
                  minimize=True,
                  upload_cloud_rate=100,
-                 n_jobs=-1):
+                 n_jobs=-1,
+                 upload_to_cloud=True): # Add new parameter
         self.X = X
         self.y = y
         self.model_cls = model
@@ -46,6 +47,7 @@ class TimeSeriesOpt:
         self.upload_executor = ThreadPoolExecutor(max_workers=4)
         self.upload_futures = []
         self.n_jobs = n_jobs
+        self.upload_to_cloud = upload_to_cloud # Store the new parameter
         self.tscv_indices = list(self.tscv.split(self.X))
         self._ensure_save_dir()
         self.stationary_params = {} # Initialize dictionary for stationary params
@@ -76,6 +78,10 @@ class TimeSeriesOpt:
             print(f"GCS upload failed: {e}")
 
     def _trigger_upload(self):
+        if not self.upload_to_cloud:
+            print("Cloud upload is disabled. Skipping upload.")
+            return
+
         if self.cloud_name.lower() in ["amazon", "aws"]:
             future = self.upload_executor.submit(self.upload_to_s3)
             self.upload_futures.append(future)
@@ -88,6 +94,10 @@ class TimeSeriesOpt:
             print(f"Warning: Unsupported cloud provider: {self.cloud_name}. Skipping upload.")
 
     def _wait_for_uploads(self):
+        if not self.upload_to_cloud:
+            print("Cloud upload is disabled. Skipping waiting for uploads.")
+            return
+
         for future in as_completed(self.upload_futures):
             try:
                 future.result()
@@ -331,14 +341,19 @@ if __name__ == "__main__":
         gap=0,
         minimize=True,
         upload_cloud_rate=upload_rate_trials,
-        n_jobs=4
+        n_jobs=4,
+        upload_to_cloud=True # Example: explicitly set to True (default)
+        # upload_to_cloud=False # Example: to disable cloud upload
     )
 
     optimizer.optimize_splits()
 
     print("\n--- Grid Search Optimization Complete ---")
     print(f"All trial results (mean score across splits) saved to {save_file_path}")
-    print(f"Results uploaded periodically to {cloud_provider} bucket {bucket} at {key}")
+    if optimizer.upload_to_cloud:
+        print(f"Results uploaded periodically to {cloud_provider} bucket {bucket} at {key}")
+    else:
+        print("Cloud upload was disabled for this run.")
 
 # %%
 
