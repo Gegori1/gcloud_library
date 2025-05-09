@@ -11,26 +11,26 @@ import os
 class TimeSeriesOpt:
     """
     Class to define the function used for the Bayesian Optimization
-    for time series data.
+    for time series data, using pre-split train and validation sets.
     """
     def __init__(
-            self, X, y, 
+            self, X_train, y_train, X_val, y_val,
             model, 
             metric, 
             save_path: str,
             s3_bucket: str, 
             s3_key, 
-            test_size=None,
             **params
         ):
-        self.X = X
-        self.y = y
+        self.X_train = X_train
+        self.y_train = y_train
+        self.X_val = X_val
+        self.y_val = y_val
         self.model = model
         self.metric = metric
         self.save_path = save_path
         self.s3_bucket = s3_bucket
         self.s3_key = s3_key
-        self.test_size = test_size
         self.params = params
         
     def upload_to_s3(self):
@@ -52,19 +52,12 @@ class TimeSeriesOpt:
                 params[param_name] = low
             else:
                 raise ValueError(f"Unsupported parameter type: {ptype}")
-            
-        
-        X_train, X_val, y_train, y_val = train_test_split(
-            self.X, self.y, 
-            test_size=self.test_size,
-            shuffle=False
-        )  
         
         model = self.model(**params)
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_val).flatten()
+        model.fit(self.X_train, self.y_train)
+        y_pred = model.predict(self.X_val).flatten()
         
-        result = self.metric(y_val, y_pred)
+        result = self.metric(self.y_val, y_pred)
         
         params_save = {
             param_name: param_value
@@ -84,9 +77,15 @@ class TimeSeriesOpt:
 
 # %% Example usage
 if __name__ == "__main__":
+    from sklearn.model_selection import train_test_split
     
-    X = np.random.randn(12, 2)
-    y = np.random.randint(0, 2, 12)
+    X_full = np.random.randn(100, 2)
+    y_full = np.random.randint(0, 2, 100)
+
+    # Pre-split the data for the example
+    X_train_ex, X_val_ex, y_train_ex, y_val_ex = train_test_split(
+        X_full, y_full, test_size=0.3, shuffle=False
+    )
 
     def example_metric(y_true, y_pred):
         return np.mean(np.abs(y_true - y_pred))
@@ -110,11 +109,14 @@ if __name__ == "__main__":
         'param4': (object, None, "stationary")
     }
 
+    # Example: Define bucket_name and s3_key if you intend to run the example with S3 upload
+    bucket_name = "your-s3-bucket-name" # Replace with your actual bucket name
+    s3_key = "optimization_results/results.jsonl" # Replace with your desired S3 key
+
     optimizer = TimeSeriesOpt(
-        X, y, 
+        X_train_ex, y_train_ex, X_val_ex, y_val_ex,
         ExampleModel, 
         example_metric,
-        test_size=0.3,
         save_path="results.jsonl",
         s3_bucket=bucket_name,
         s3_key=s3_key,

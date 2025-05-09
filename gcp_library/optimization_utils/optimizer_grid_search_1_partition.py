@@ -1,7 +1,6 @@
-\
 import boto3
 import numpy as np
-from sklearn.model_selection import train_test_split # Changed from TimeSeriesSplit
+from sklearn.model_selection import train_test_split
 import json
 from google.cloud import storage
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -20,18 +19,18 @@ class GridSearchOpt1Partition:
     Each hyperparameter set is evaluated on a single train-test split.
     Results are uploaded periodically to the cloud if enabled.
     """
-    def __init__(self, X, y, model, metric,
+    def __init__(self, X_train, y_train, X_val, y_val, model, metric,
                  param_config: dict,
                  save_path: str,
                  cloud_name: str, cloud_bucket: str, cloud_key: str,
-                 test_size=0.2, # For train_test_split
                  minimize=True,
                  upload_cloud_rate=100,
                  n_jobs=1, # Optuna n_jobs for parallel trials (each trial is one param set)
-                 upload_to_cloud=True,
-                 random_state_split=None): # Added for reproducibility of split
-        self.X = X
-        self.y = y
+                 upload_to_cloud=True):
+        self.X_train = X_train
+        self.y_train = y_train
+        self.X_val = X_val
+        self.y_val = y_val
         self.model_cls = model
         self.metric = metric
         self.param_config = param_config
@@ -39,8 +38,6 @@ class GridSearchOpt1Partition:
         self.cloud_name = cloud_name
         self.cloud_bucket = cloud_bucket
         self.cloud_key = cloud_key
-        self.test_size = test_size
-        self.random_state_split = random_state_split
         self.minimize = minimize
         self.upload_cloud_rate = upload_cloud_rate
         self.upload_executor = ThreadPoolExecutor(max_workers=4)
@@ -49,14 +46,6 @@ class GridSearchOpt1Partition:
         self.upload_to_cloud = upload_to_cloud
         self.stationary_params = {}
         self._ensure_save_dir()
-
-        # Perform the single split here to be used by all trials
-        self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-            self.X, self.y,
-            test_size=self.test_size,
-            shuffle=False, # Typically False for time-series like data, or can be configurable
-            random_state=self.random_state_split
-        )
 
     def _ensure_save_dir(self):
         save_dir = os.path.dirname(self.save_path)
@@ -292,6 +281,11 @@ if __name__ == "__main__":
     X_data = np.random.randn(100, 5)
     y_data = X_data[:, 0] * 2.5 + X_data[:, 1] * -1.5 + np.random.randn(100) * 1.2
 
+    # Pre-split the data for the example
+    X_train_ex, X_val_ex, y_train_ex, y_val_ex = train_test_split(
+        X_data, y_data, test_size=0.25, shuffle=False, random_state=42
+    )
+
     def example_metric_mse(y_true, y_pred):
         return mean_squared_error(y_true, y_pred)
 
@@ -319,8 +313,10 @@ if __name__ == "__main__":
 
     # Initialize the optimizer
     optimizer_instance = GridSearchOpt1Partition(
-        X=X_data,
-        y=y_data,
+        X_train=X_train_ex,
+        y_train=y_train_ex,
+        X_val=X_val_ex,
+        y_val=y_val_ex,
         model=Ridge, # Scikit-learn model class
         metric=example_metric_mse,
         param_config=param_config_example,
@@ -328,12 +324,10 @@ if __name__ == "__main__":
         cloud_name=cloud_provider_name,
         cloud_bucket=cloud_storage_bucket,
         cloud_key=cloud_storage_key,
-        test_size=0.25, # 25% of data for validation
         minimize=True, # True if the metric should be minimized (e.g., MSE)
         upload_cloud_rate=upload_frequency,
         n_jobs=1, # Use 1 job for simplicity in example, can be >1 for parallel trials
-        upload_to_cloud=False, # Set to True to enable actual cloud uploads
-        random_state_split=42 # For reproducible train/test split
+        upload_to_cloud=False # Set to True to enable actual cloud uploads
     )
 
     # Run the optimization
