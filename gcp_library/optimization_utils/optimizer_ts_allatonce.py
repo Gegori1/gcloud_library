@@ -12,7 +12,9 @@ class TimeSeriesOpt:
     Class to define the function used for the Bayesian Optimization
     for time series data.
     """
-    def __init__(self, X, y, model, metric, save_path: str, cloud_name, cloud_bucket, cloud_key, n_splits=5, test_size=None, gap=0, upload_cloud_rate=100, **params):
+    def __init__(self, X, y, model, metric, save_path: str, cloud_name, cloud_bucket, cloud_key, 
+                 n_splits=5, test_size=None, gap=0, upload_cloud_rate=100, 
+                 direction="minimize", n_jobs=1, upload_to_cloud=True, **params):
         self.X = X
         self.y = y
         self.model = model
@@ -29,6 +31,9 @@ class TimeSeriesOpt:
         self.upload_cloud_rate = upload_cloud_rate
         self.executor = ThreadPoolExecutor(max_workers=4)  
         self.upload_futures = []
+        self.direction = direction
+        self.n_jobs = n_jobs
+        self.upload_to_cloud = upload_to_cloud
 
     def save_file(self, params_save, result):
         with open(self.save_path, 'a') as f:
@@ -88,9 +93,9 @@ class TimeSeriesOpt:
             if isinstance(param_value, (int, float, str))
         }
         # save parameters
-        self.save_file(params_save, score)
+        self.save_file(params_save, result)
         print(f"trail number {trial.number}", flush=True)
-        if (trial.number + 1) % self.upload_cloud_rate == 0:
+        if self.upload_to_cloud and (trial.number + 1) % self.upload_cloud_rate == 0:
             if self.cloud_name.lower() in ["amazon", "aws"]:
                 future = self.executor.submit(self.upload_to_s3)
                 self.upload_futures.append(future)
@@ -102,7 +107,8 @@ class TimeSeriesOpt:
             else:
                 raise ValueError(f"Unsupported cloud provider: {self.cloud_name}")
         
-        self._wait_for_uploads()
+        if self.upload_to_cloud:
+            self._wait_for_uploads()
         return result
 
     def _wait_for_uploads(self):
@@ -110,6 +116,17 @@ class TimeSeriesOpt:
         for future in self.upload_futures:
             future.result()  # Wait for the upload to finish
         self.upload_futures = []  # Clear the list of futures
+
+    def optimize(self, n_trials):
+        """
+        Run the Optuna optimization study.
+        """
+        study = optuna.create_study(direction=self.direction)
+        study.optimize(self, n_trials=n_trials, n_jobs=self.n_jobs)
+        
+        print("Best parameters: ", study.best_params)
+        print("Best value: ", study.best_value)
+        return study
 
 # %% Example usage
 if __name__ == "__main__":
@@ -143,19 +160,19 @@ if __name__ == "__main__":
         X, y, 
         ExampleModel, 
         example_metric,
+        save_path="ts_allatonce_results.jsonl",
+        cloud_name="gcp",
+        cloud_bucket="your-bucket",
+        cloud_key="ts_allatonce_results.jsonl",
         n_splits=2, 
         test_size=None, 
         gap=3, 
-        minimize=True, **pbounds
+        direction='minimize',
+        n_jobs=1,
+        upload_to_cloud=False,
+        **pbounds
     )
 
-    study = optuna.create_study(direction='minimize')
-
-
-    # Optimize the study
-    study.optimize(optimizer, n_trials=1)
-
-    # Print the best parameters and the best value
-    print("Best parameters: ", study.best_params)
-    print("Best value: ", study.best_value)
+    # Optimize the study using the new optimize method
+    study = optimizer.optimize(n_trials=10)
 # %%
