@@ -45,7 +45,7 @@ class TimeSeriesOptParallelSplits:
     def _save_trial_result(self, params_to_save, mean_score):
         with open(self.save_path, 'a') as f:
             json.dump({"target": mean_score, "params": params_to_save}, f)
-            f.write('\\n')
+            f.write('\n')
 
     def _upload_to_s3(self):
         # Ensure boto3 is imported if not at the top level or handle missing import
