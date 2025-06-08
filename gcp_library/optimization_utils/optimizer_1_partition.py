@@ -90,7 +90,7 @@ class TimeSeriesOpt:
             
         if (self.upload_to_cloud) and ((trail.number + 1) % self.upload_cloud_rate == 0):
             self.upload_to_s3()
-        elif not self.upload_to_cloud:
+        elif (not self.upload_to_cloud) and ((trail.number + 1) % self.upload_cloud_rate == 0):
             print("Canceling upload. upload_to_cloud set to False")
         
         return result
