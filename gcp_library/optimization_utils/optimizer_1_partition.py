@@ -1,6 +1,6 @@
 # %%
 import numpy as np
-# from sklearn.model_selection import TimeSeriesSplit
+from google.cloud import storage
 from sklearn.model_selection import train_test_split
 import boto3
 import optuna
@@ -18,9 +18,14 @@ class TimeSeriesOpt:
             model, 
             metric, 
             save_path: str,
-            s3_bucket: str, 
-            s3_key, 
-            **params
+            cloud_name: str,
+            cloud_bucket: str, 
+            cloud_key: str,
+            param_config: dict,
+            direction: str="minimize",
+            n_jobs: int=1,
+            upload_to_cloud: bool=False,
+            upload_cloud_rate: int=100
         ):
         self.X_train = X_train
         self.y_train = y_train
@@ -29,14 +34,29 @@ class TimeSeriesOpt:
         self.model = model
         self.metric = metric
         self.save_path = save_path
-        self.s3_bucket = s3_bucket
-        self.s3_key = s3_key
-        self.params = params
+        self.cloud_name = cloud_name
+        self.cloud_bucket = cloud_bucket
+        self.cloud_key = cloud_key
+        self.direction = direction
+        self.n_jobs = n_jobs
+        self.upload_to_cloud = upload_to_cloud
+        self.params = param_config
+        self.upload_cloud_rate = upload_cloud_rate
         
+    def save_file(self, params_save, result):
+        with open(self.save_path, 'a') as f:
+            json.dump({"target": result, "params": params_save}, f)
+            f.write('\n')
+
     def upload_to_s3(self):
         s3 = boto3.client('s3')
-        if os.path.exists(self.save_path):
-            s3.upload_file(self.save_path, self.s3_bucket, self.s3_key)
+        s3.upload_file(self.save_path, self.cloud_bucket, self.cloud_key)
+        
+    def upload_to_gstorage(self):
+        client = storage.Client()
+        bucket = client.bucket(self.cloud_bucket)
+        blob = bucket.blob(self.cloud_key)
+        blob.upload_from_filename(self.save_path)
 
     def __call__(self, trail):
         
@@ -66,14 +86,26 @@ class TimeSeriesOpt:
             if isinstance(param_value, (int, float, str))
         }
         
-        with open(self.save_path, 'a') as f:
-            json.dump({"target": result, "params": params_save}, f)
-            f.write('\n')
+        self.save_file(params_save, result)
             
-        if (trail.number + 1) % 100 == 0:
+        if (self.upload_to_cloud) and ((trail.number + 1) % self.upload_cloud_rate == 0):
             self.upload_to_s3()
+        elif not self.upload_to_cloud:
+            print("Canceling upload. upload_to_cloud set to False")
         
         return result
+    
+    def optimize(self, n_trials):
+        """
+        Run the Optuna optimization study.
+        """
+        sampler = optuna.samplers.TPESampler(multivariate=True, n_startup_trials=60)
+        study = optuna.create_study(direction=self.direction, sampler=sampler)
+        study.optimize(self, n_trials=n_trials, n_jobs=self.n_jobs)
+        
+        print("Best parameters: ", study.best_params)
+        print("Best value: ", study.best_value)
+        return study
 
 # %% Example usage
 if __name__ == "__main__":
@@ -111,22 +143,20 @@ if __name__ == "__main__":
 
     # Example: Define bucket_name and s3_key if you intend to run the example with S3 upload
     bucket_name = "your-s3-bucket-name" # Replace with your actual bucket name
-    s3_key = "optimization_results/results.jsonl" # Replace with your desired S3 key
+    cloud_key = "optimization_results/results.jsonl" # Replace with your desired cloud key
 
     optimizer = TimeSeriesOpt(
         X_train_ex, y_train_ex, X_val_ex, y_val_ex,
         ExampleModel, 
         example_metric,
         save_path="results.jsonl",
-        s3_bucket=bucket_name,
-        s3_key=s3_key,
-        **pbounds
+        cloud_name="default",
+        cloud_bucket=bucket_name,
+        cloud_key=cloud_key,
+        n_jobs=-1,
+        upload_to_cloud=True,
+        param_config=pbounds,
     )
-
-    study = optuna.create_study(direction='minimize')
-    study.optimize(optimizer, n_trials=500)
-
-    # Print the best parameters and the best value
-    print("Best parameters: ", study.best_params)
-    print("Best value: ", study.best_value)
+    
+    optimizer.optimize(n_trials=500)
 # %%
