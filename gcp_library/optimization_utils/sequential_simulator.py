@@ -1,4 +1,3 @@
-\
 import os
 import json
 import time
@@ -419,5 +418,3 @@ if __name__ == "__main__":
          print(f"Empty param simulation results file created at {results_file_empty_path} (unexpected for 0 runs).")
     else:
          print(f"Empty param simulation correctly resulted in no output file at {results_file_empty_path}.")
-
-```

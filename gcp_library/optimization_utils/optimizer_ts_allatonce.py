@@ -121,7 +121,7 @@ class TimeSeriesOpt:
         """
         Run the Optuna optimization study.
         """
-        sampler = optuna.samplers.TPESampler(multivariate=True, n_startup_trials=60)
+        sampler = optuna.samplers.TPESampler(multivariate=True, n_startup_trials=30)
         study = optuna.create_study(direction=self.direction, sampler=sampler)
         study.optimize(self, n_trials=n_trials, n_jobs=self.n_jobs)
         
