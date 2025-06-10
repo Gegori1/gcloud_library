@@ -212,7 +212,7 @@ class SequentialSimulator:
 
         result_data = {
             "simulation_run": simulation_idx + 1, # 1-indexed for reporting
-            "metric_value": metric_value_to_save,
+            "target": metric_value_to_save,
             "params": serializable_params,
             "computation_time_seconds": round(computation_time, 4),
             "non_optimal_fits": non_optimal_count

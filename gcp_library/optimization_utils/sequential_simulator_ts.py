@@ -227,7 +227,7 @@ class SequentialSimulatorTimeSeries:
 
         result_data = {
             "simulation_run": simulation_idx + 1,
-            "mean_metric_score": score_to_save,
+            "target": score_to_save,
             "params": serializable_params,
             "computation_time_seconds": round(computation_time, 4),
             "total_non_optimal_fits_across_splits": total_non_optimal_count,
