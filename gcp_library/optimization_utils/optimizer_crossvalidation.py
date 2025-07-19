@@ -7,6 +7,7 @@ from sklearn.metrics import mean_absolute_percentage_error
 from concurrent.futures import ThreadPoolExecutor
 import json
 import boto3
+import optuna
 from google.cloud import storage
 
 def mape(y_true, y_pred):
@@ -28,7 +29,7 @@ class CrossValidationOptimizer:
     """
     Class to optimize hyperparameters using cross-validation, to be used as objective function in Optuna.
     """
-    def __init__(self, X, y, model, metric, save_path: str, cloud_name, cloud_bucket, cloud_key, param_distributions, n_folds=5, standardize=True, random_state=42, upload_cloud_rate=100):
+    def __init__(self, X, y, model, metric, save_path: str, cloud_name, cloud_bucket, cloud_key, param_distributions, n_folds=5, standardize=True, random_state=42, upload_cloud_rate=100, direction="minimize", n_jobs=1, upload_to_cloud=False):
         """
         Initialize the CrossValidationOptimizer.
 
@@ -46,6 +47,9 @@ class CrossValidationOptimizer:
         - standardize: whether to standardize the data
         - random_state: random state for reproducibility
         - upload_cloud_rate: rate to upload the file to the cloud
+        - direction: direction of optimization ('minimize' or 'maximize')
+        - n_jobs: number of parallel jobs
+        - upload_to_cloud: whether to upload results to cloud storage
         """
         self.X = X
         self.y = y
@@ -64,6 +68,9 @@ class CrossValidationOptimizer:
         self.upload_cloud_rate = upload_cloud_rate
         self.executor = ThreadPoolExecutor(max_workers=4)  # Adjust max_workers as needed
         self.upload_futures = []
+        self.direction = direction
+        self.n_jobs = n_jobs
+        self.upload_to_cloud = upload_to_cloud
 
     def save_file(self, params_save, result):
         with open(self.save_path, 'a') as f:
@@ -135,12 +142,12 @@ class CrossValidationOptimizer:
             param_name: param_value
             for param_name, param_value 
             in params.items()
-            if isinstance(param_value, (int, float))
+            if isinstance(param_value, (int, float, str))
         }
         # save parameters
         self.save_file(params_save, result)
         print(f"trail number {trial.number}", flush=True)
-        if (trial.number + 1) % self.upload_cloud_rate == 0:
+        if self.upload_to_cloud and (trial.number + 1) % self.upload_cloud_rate == 0:
             if self.cloud_name.lower() in ["amazon", "aws"]:
                 future = self.executor.submit(self.upload_to_s3)
                 self.upload_futures.append(future)
@@ -152,7 +159,8 @@ class CrossValidationOptimizer:
             else:
                 raise ValueError(f"Unsupported cloud provider: {self.cloud_name}")
         
-        self._wait_for_uploads()
+        if self.upload_to_cloud:
+            self._wait_for_uploads()
         return result
 
     def _wait_for_uploads(self):
@@ -161,9 +169,20 @@ class CrossValidationOptimizer:
             future.result()  # Wait for the upload to finish
         self.upload_futures = []  # Clear the list of futures
 
+    def optimize(self, n_trials):
+        """
+        Run the Optuna optimization study.
+        """
+        sampler = optuna.samplers.TPESampler(multivariate=True, n_startup_trials=30)
+        study = optuna.create_study(direction=self.direction, sampler=sampler)
+        study.optimize(self, n_trials=n_trials, n_jobs=self.n_jobs)
+        
+        print("Best parameters: ", study.best_params)
+        print("Best value: ", study.best_value)
+        return study
+
 # %% Example usage
 if __name__ == "__main__":
-    import optuna
     from sklearn.svm import SVR
     import numpy as np
     
@@ -196,19 +215,13 @@ if __name__ == "__main__":
         param_distributions,
         n_folds=3,
         standardize=True,
-        random_state=42
+        random_state=42,
+        direction='minimize',
+        n_jobs=1,
+        upload_to_cloud=False
     )
 
-    # Create an Optuna study and optimize
-    study = optuna.create_study(direction='minimize')
-    study.optimize(optimizer, n_trials=10)
-
-    # Print the results
-    print("Best trial:")
-    trial = study.best_trial
-    print("  Value: {}".format(trial.value))
-    print("  Params: ")
-    for key, value in trial.params.items():
-        print("    {}: {}".format(key, value))
+    # Optimize the study using the new optimize method
+    study = optimizer.optimize(n_trials=10)
 
 # %%
